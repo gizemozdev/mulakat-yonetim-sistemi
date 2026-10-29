@@ -39,3 +39,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma: yerel veritabanı ve "prisma generate" ile üretilen istemci
+dev.db
+dev.db-journal
+/generated/
+
+# staj defteri: kişisel, depoya girmez
+/docs/
+
+# yapay zekâ araçlarının yerel dosyaları ve notları
+/.agents/
+/.cursor/
+/.devin/
+/.claude/
+/CLAUDE.md
+/AGENTS.md
