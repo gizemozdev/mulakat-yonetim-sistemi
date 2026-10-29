@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Pozisyon {
+  id         Int      @id @default(autoincrement())
+  ad         String   @unique
+  adaylar    Aday[]
+  ikAkislari IkAkis[]
+}
+
+model Aday {
+  id         Int      @id @default(autoincrement())
+  adSoyad    String
+  yas        Int
+  // Eski kayıtlar boş başlar; yeni ve düzenlenen adaylarda zorunlu (lib/adayDogrula.ts)
+  eposta     String   @default("")
+  telefon    String   @default("")
+  // Mülakatlardan sonra verilen işe alım kararı ve gerekçesi (teknik puan karar değildir)
+  karar      String   @default("Değerlendiriliyor")
+  kararNotu  String   @default("")
+  pozisyonId Int
+  createdAt  DateTime @default(now())
+
+  pozisyon   Pozisyon  @relation(fields: [pozisyonId], references: [id])
+  mulakatlar Mulakat[]
+  cv         AdayCv?
+}
+
+// Adayın CV'si (PDF). Aday listesi her okunduğunda dosya baytları gelmesin diye ayrı tabloda.
+model AdayCv {
+  id        Int      @id @default(autoincrement())
+  adayId    Int      @unique
+  dosyaAdi  String
+  boyut     Int
+  icerik    Bytes
+  yuklenme  DateTime @default(now())
+
+  aday Aday @relation(fields: [adayId], references: [id], onDelete: Cascade)
+}
+
+model Mulakat {
+  id          Int    @id @default(autoincrement())
+  adayId      Int
+  tur         String
+  mulakatciId Int?
+  tarih       String @default("")
+  // "SS:DD"; isteğe bağlı, boşsa saat belirlenmemiş
+  saat        String @default("")
+  durum       String @default("Planlanmadı")
+
+  // İK mülakatı: seçilen pozisyon akışı, sıradaki soru ve mülakat sonundaki genel not
+  ikAkisId       Int?
+  ikGuncelSoruId Int?
+  genelNot       String @default("")
+
+  aday           Aday          @relation(fields: [adayId], references: [id], onDelete: Cascade)
+  mulakatci      Mulakatci?    @relation(fields: [mulakatciId], references: [id], onDelete: SetNull)
+  teknikCevaplar TeknikCevap[]
+  ikAkis         IkAkis?       @relation(fields: [ikAkisId], references: [id], onDelete: SetNull)
+  ikCevaplar     IkCevap[]
+
+  @@unique([adayId, tur])
+}
+
+model Mulakatci {
+  id         Int       @id @default(autoincrement())
+  adSoyad    String
+  alan       String
+  mulakatlar Mulakat[]
+
+  // Mülakatçının uygulamadaki hesabı ("Size atanan mülakatlar"); bir hesap İK ve teknik kaydına birlikte bağlanabilir
+  kullaniciId Int?
+  kullanici   Kullanici? @relation(fields: [kullaniciId], references: [id], onDelete: SetNull)
+
+  @@unique([adSoyad, alan])
+}
+
+// Teknik mülakat soru havuzu: konu başlıkları ve altındaki sorular
+model Konu {
+  id      Int          @id @default(autoincrement())
+  ad      String       @unique
+  sorular TeknikSoru[]
+}
+
+model TeknikSoru {
+  id     Int    @id @default(autoincrement())
+  konuId Int
+  metin  String
+
+  konu Konu @relation(fields: [konuId], references: [id])
+}
+
+// Teknik mülakatta sorulan her soru ve verilen değerlendirme.
+// Soru ve konu metni kopyalanır; havuzdaki soru sonradan değişse de sonuç bozulmaz.
+model TeknikCevap {
+  id            Int     @id @default(autoincrement())
+  mulakatId     Int
+  sira          Int
+  konuAdi       String
+  soruMetni     String
+  degerlendirme String?
+
+  mulakat Mulakat @relation(fields: [mulakatId], references: [id], onDelete: Cascade)
+}
+
+// İK mülakatı soru akışları. "Genel" akış her mülakatta sorulur; diğerleri
+// pozisyona özeldir ve mülakat başlatılırken seçilir.
+model IkAkis {
+  id          Int        @id @default(autoincrement())
+  ad          String     @unique
+  genel       Boolean    @default(false)
+  ilkSoruId   Int?
+  ilkSoru     IkSoru?    @relation("IlkSoru", fields: [ilkSoruId], references: [id], onDelete: SetNull)
+  sorular     IkSoru[]   @relation("AkisSorulari")
+  pozisyonlar Pozisyon[]
+  mulakatlar  Mulakat[]
+}
+
+model IkSoru {
+  id     Int    @id @default(autoincrement())
+  akisId Int
+  metin  String
+
+  akis            IkAkis      @relation("AkisSorulari", fields: [akisId], references: [id], onDelete: Cascade)
+  secenekler      IkSecenek[] @relation("SoruSecenekleri")
+  gelenSecenekler IkSecenek[] @relation("SonrakiSoru")
+  ilkOlduguAkis   IkAkis[]    @relation("IlkSoru")
+}
+
+// Bir sorunun cevap seçeneği; sonrakiSoruId boşsa akış bu seçenekle biter
+model IkSecenek {
+  id            Int    @id @default(autoincrement())
+  soruId        Int
+  metin         String
+  sonrakiSoruId Int?
+
+  soru        IkSoru  @relation("SoruSecenekleri", fields: [soruId], references: [id], onDelete: Cascade)
+  sonrakiSoru IkSoru? @relation("SonrakiSoru", fields: [sonrakiSoruId], references: [id], onDelete: SetNull)
+}
+
+// İK mülakatında verilen her cevap. Metinler kopyalanır; akış sonradan değişse de sonuç bozulmaz.
+// soruId yalnızca "son cevabı geri al" için tutulur, ilişki değildir.
+model IkCevap {
+  id           Int     @id @default(autoincrement())
+  mulakatId    Int
+  sira         Int
+  soruId       Int?
+  akisAdi      String
+  soruMetni    String
+  secenekMetni String?
+  not          String  @default("")
+
+  mulakat Mulakat @relation(fields: [mulakatId], references: [id], onDelete: Cascade)
+}
+
+// Uygulamaya giriş yapan kullanıcılar. Şifre açık metin olarak değil, scrypt ile tuzlanmış özet olarak tutulur.
+model Kullanici {
+  id           Int      @id @default(autoincrement())
+  kullaniciAdi String   @unique
+  adSoyad      String
+  sifreOzeti   String
+  olusturulma  DateTime @default(now())
+  oturumlar    Oturum[]
+  mulakatcilar Mulakatci[]
+
+  // Art arda yanlış şifre sayısı; sınıra ulaşınca hesap kilitBitis anına kadar kilitlenir
+  hataliDeneme Int       @default(0)
+  kilitBitis   DateTime?
+}
+
+// Açık oturumlar. Çerezdeki rastgele anahtarın kendisi değil, SHA-256 özeti saklanır.
+model Oturum {
+  id           Int      @id @default(autoincrement())
+  anahtarOzeti String   @unique
+  kullaniciId  Int
+  bitis        DateTime
+
+  kullanici Kullanici @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+}
