@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ClipboardList, LogIn, UserPlus } from "lucide-react";
+import { ClipboardList, Info, LogIn, UserPlus } from "lucide-react";
 import { istekAt } from "../../components/istekAt";
+import SifreAlani from "../../components/SifreAlani";
 
 const girdiSinifi =
   "w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 placeholder-slate-400 outline-none focus:border-marka focus:ring-2 focus:ring-marka/20";
@@ -20,6 +21,7 @@ export default function Giris() {
 
   const [hata, setHata] = useState("");
   const [gonderiliyor, setGonderiliyor] = useState(false);
+  const [unuttumAcik, setUnuttumAcik] = useState(false);
 
   useEffect(() => {
     const durumuGetir = async () => {
@@ -114,15 +116,27 @@ export default function Giris() {
           </div>
 
           <div>
-            <label htmlFor="sifre" className={etiketSinifi}>Şifre</label>
-            <input
+            <div className="mb-1 flex items-center justify-between">
+              <label htmlFor="sifre" className="block text-sm font-medium text-slate-800">Şifre</label>
+
+              {kurulumGerekli === false && (
+                <button
+                  type="button"
+                  onClick={() => setUnuttumAcik(!unuttumAcik)}
+                  aria-expanded={unuttumAcik}
+                  className="text-sm font-medium text-marka hover:underline"
+                >
+                  Şifremi unuttum
+                </button>
+              )}
+            </div>
+            <SifreAlani
               id="sifre"
-              type="password"
               value={sifre}
-              onChange={(e) => setSifre(e.target.value)}
+              onChange={setSifre}
               autoComplete={kurulumGerekli ? "new-password" : "current-password"}
               required
-              className={girdiSinifi}
+              sinif={girdiSinifi}
             />
             {kurulumGerekli && (
               <p className="mt-1 text-xs text-slate-500">En az 6 karakter.</p>
@@ -132,15 +146,32 @@ export default function Giris() {
           {kurulumGerekli && (
             <div>
               <label htmlFor="sifreTekrar" className={etiketSinifi}>Şifre (tekrar)</label>
-              <input
+              <SifreAlani
                 id="sifreTekrar"
-                type="password"
                 value={sifreTekrar}
-                onChange={(e) => setSifreTekrar(e.target.value)}
+                onChange={setSifreTekrar}
                 autoComplete="new-password"
                 required
-                className={girdiSinifi}
+                sinif={girdiSinifi}
               />
+            </div>
+          )}
+
+          {/* E-posta gönderimi olmadığı için şifre sistemi bilen biri tarafından sıfırlanır */}
+          {unuttumAcik && (
+            <div className="flex gap-3 rounded-lg bg-marka-acik p-4 text-sm text-slate-700">
+              <Info size={18} className="mt-0.5 shrink-0 text-marka" />
+              <div className="space-y-1.5">
+                <p>
+                  Hesabı olan bir yöneticiye başvurun; <span className="font-medium">Kullanıcılar</span>{" "}
+                  sayfasından size yeni geçici şifre verebilir.
+                </p>
+                <p className="text-slate-500">
+                  Kimse giriş yapamıyorsa, uygulamanın kurulu olduğu bilgisayarda{" "}
+                  <code className="rounded bg-white px-1.5 py-0.5 text-xs">npm run sifre-sifirla</code>{" "}
+                  komutuyla şifre sıfırlanabilir.
+                </p>
+              </div>
             </div>
           )}
 

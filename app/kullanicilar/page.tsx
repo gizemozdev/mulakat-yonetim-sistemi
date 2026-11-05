@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KeyRound, Plus, Trash2, Users } from "lucide-react";
+import { KeyRound, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import BosDurum from "../../components/BosDurum";
 import OnayKutusu from "../../components/OnayKutusu";
+import SifreAlani from "../../components/SifreAlani";
 import { istekAt } from "../../components/istekAt";
 import { stiller } from "../../components/stiller";
 
@@ -37,6 +38,12 @@ export default function Kullanicilar() {
   const [sifreHatasi, setSifreHatasi] = useState("");
   const [sifreMesaji, setSifreMesaji] = useState("");
   const [sifreGonderiliyor, setSifreGonderiliyor] = useState(false);
+
+  // Başkasının şifresini sıfırlama (kartın içinde açılır)
+  const [sifirlanacakId, setSifirlanacakId] = useState<number | null>(null);
+  const [geciciSifre, setGeciciSifre] = useState("");
+  const [sifirlamaHatasi, setSifirlamaHatasi] = useState("");
+  const [sifirlamaMesaji, setSifirlamaMesaji] = useState("");
 
   useEffect(() => {
     const kullanicilariGetir = async () => {
@@ -94,6 +101,29 @@ export default function Kullanicilar() {
 
     setKullanicilar(kullanicilar.filter((mevcut) => mevcut.id !== kullanici.id));
     setIslemHatasi("");
+  };
+
+  const sifirlamayiAc = (kullanici: Kullanici) => {
+    setSifirlanacakId(kullanici.id);
+    setGeciciSifre("");
+    setSifirlamaHatasi("");
+    setSifirlamaMesaji("");
+  };
+
+  const sifreSifirla = async (e: React.FormEvent, kullanici: Kullanici) => {
+    e.preventDefault();
+
+    const { hata } = await istekAt(`/api/kullanicilar/${kullanici.id}/sifre`, "PUT", {
+      yeniSifre: geciciSifre,
+    });
+
+    if (hata) {
+      setSifirlamaHatasi(hata);
+      return;
+    }
+
+    setSifirlanacakId(null);
+    setSifirlamaMesaji(`${kullanici.adSoyad} için yeni geçici şifre kaydedildi. Şifreyi kişiye iletin; giriş yaptıktan sonra kendi şifresini belirleyebilir.`);
   };
 
   const sifreDegistir = async (e: React.FormEvent) => {
@@ -183,15 +213,14 @@ export default function Kullanicilar() {
 
             <div>
               <label htmlFor="sifre" className={stiller.etiket}>Geçici şifre</label>
-              <input
+              <SifreAlani
                 id="sifre"
-                type="password"
                 value={sifre}
-                onChange={(e) => setSifre(e.target.value)}
+                onChange={setSifre}
                 placeholder="En az 6 karakter"
                 autoComplete="new-password"
                 required
-                className={stiller.girdi()}
+                sinif={stiller.girdi()}
               />
               <p className="mt-1 text-xs text-slate-500">
                 Kişi giriş yaptıktan sonra bu sayfadan kendi şifresini değiştirebilir.
@@ -220,6 +249,10 @@ export default function Kullanicilar() {
 
         {islemHatasi && (
           <p className="mb-4 text-red-600">{islemHatasi}</p>
+        )}
+
+        {sifirlamaMesaji && (
+          <p className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{sifirlamaMesaji}</p>
         )}
 
         {yukleniyor ? (
@@ -251,17 +284,64 @@ export default function Kullanicilar() {
                     </p>
                   </div>
 
-                  {/* Kendi hesabını silmek sunucuda da engelli; düğme hiç gösterilmez */}
+                  {/* Kendi hesabını silmek ve kendi şifreni buradan sıfırlamak sunucuda da engelli; düğmeler gösterilmez */}
                   {!kullanici.ben && (
-                    <button
-                      onClick={() => setSilinecek(kullanici)}
-                      className={stiller.silDugmesi}
-                    >
-                      <Trash2 size={14} />
-                      Sil
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => sifirlamayiAc(kullanici)}
+                        className={stiller.duzenleDugmesi}
+                      >
+                        <RotateCcw size={14} />
+                        Şifre sıfırla
+                      </button>
+
+                      <button
+                        onClick={() => setSilinecek(kullanici)}
+                        className={stiller.silDugmesi}
+                      >
+                        <Trash2 size={14} />
+                        Sil
+                      </button>
+                    </div>
                   )}
                 </div>
+
+                {sifirlanacakId === kullanici.id && (
+                  <form
+                    onSubmit={(e) => sifreSifirla(e, kullanici)}
+                    className="mt-4 space-y-3 border-t border-slate-200 pt-4"
+                  >
+                    <label htmlFor={`geciciSifre-${kullanici.id}`} className={stiller.etiket}>
+                      Yeni geçici şifre
+                    </label>
+
+                    <SifreAlani
+                      id={`geciciSifre-${kullanici.id}`}
+                      value={geciciSifre}
+                      onChange={setGeciciSifre}
+                      placeholder="En az 6 karakter"
+                      autoComplete="new-password"
+                      required
+                      autoFocus
+                      sinif={stiller.girdi()}
+                    />
+
+                    <p className="text-xs text-slate-500">
+                      Kaydedince kişinin hesap kilidi açılır ve açık oturumları kapanır.
+                    </p>
+
+                    {sifirlamaHatasi && <p className="text-sm text-red-600">{sifirlamaHatasi}</p>}
+
+                    <div className="flex gap-3">
+                      <button type="submit" className={stiller.kucukKaydetDugmesi}>
+                        Şifreyi Kaydet
+                      </button>
+                      <button type="button" onClick={() => setSifirlanacakId(null)} className={stiller.vazgecDugmesi}>
+                        Vazgeç
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             ))}
           </div>
@@ -277,41 +357,38 @@ export default function Kullanicilar() {
         <div className="space-y-5">
           <div>
             <label htmlFor="mevcutSifre" className={stiller.etiket}>Mevcut şifre</label>
-            <input
+            <SifreAlani
               id="mevcutSifre"
-              type="password"
               value={mevcutSifre}
-              onChange={(e) => setMevcutSifre(e.target.value)}
+              onChange={setMevcutSifre}
               autoComplete="current-password"
               required
-              className={stiller.girdi()}
+              sinif={stiller.girdi()}
             />
           </div>
 
           <div>
             <label htmlFor="yeniSifre" className={stiller.etiket}>Yeni şifre</label>
-            <input
+            <SifreAlani
               id="yeniSifre"
-              type="password"
               value={yeniSifre}
-              onChange={(e) => setYeniSifre(e.target.value)}
+              onChange={setYeniSifre}
               placeholder="En az 6 karakter"
               autoComplete="new-password"
               required
-              className={stiller.girdi()}
+              sinif={stiller.girdi()}
             />
           </div>
 
           <div>
             <label htmlFor="yeniSifreTekrar" className={stiller.etiket}>Yeni şifre (tekrar)</label>
-            <input
+            <SifreAlani
               id="yeniSifreTekrar"
-              type="password"
               value={yeniSifreTekrar}
-              onChange={(e) => setYeniSifreTekrar(e.target.value)}
+              onChange={setYeniSifreTekrar}
               autoComplete="new-password"
               required
-              className={stiller.girdi()}
+              sinif={stiller.girdi()}
             />
           </div>
 

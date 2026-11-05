@@ -18,7 +18,7 @@ Pidata'da staj projesi olarak geliştirilmiştir.
   - Sorular cevaba göre dallanır: her seçenek bir sonraki soruya bağlanır. Döngü kuran bağlantılar engellenir.
   - Düzenleme ekranında akış, girintili bir ağaç olarak önizlenir; ulaşılamayan ya da seçeneği olmayan sorular için uyarı verilir.
   - Mülakatta her soruya not, sonunda genel değerlendirme yazılır; son cevap geri alınabilir, yanlış başlatılan mülakat sıfırlanabilir.
-- **Giriş:** kullanıcı adı ve şifreyle giriş. Şifreler tuzlanmış scrypt özeti olarak saklanır; oturum 7 gün geçerli, httpOnly bir çerezle tutulur. Giriş yapılmadan hiçbir sayfa ve API kullanılamaz. Dışarıdan kayıt yoktur: yeni hesapları giriş yapmış biri **Kullanıcılar** sayfasından açar, herkes kendi şifresini aynı sayfadan değiştirebilir.
+- **Giriş:** kullanıcı adı ve şifreyle giriş. Şifreler tuzlanmış scrypt özeti olarak saklanır; oturum 7 gün geçerli, httpOnly bir çerezle tutulur. Giriş yapılmadan hiçbir sayfa ve API kullanılamaz. Dışarıdan kayıt yoktur: yeni hesapları giriş yapmış biri **Kullanıcılar** sayfasından açar, herkes kendi şifresini aynı sayfadan değiştirebilir. Şifresini unutan birine aynı sayfadan yeni geçici şifre verilir (hesap kilidi açılır, açık oturumları kapanır); kimse giriş yapamıyorsa bilgisayarda `npm run sifre-sifirla` kullanılır. Mobil uygulama için oturum anahtarı `Authorization: Bearer` başlığıyla da kabul edilir.
 - **Sonuç özeti ve rapor:** Mülakatlar sayfasında aday kartlarında teknik yüzde, aday seçilince iki mülakatın özeti. Her aday için iletişim bilgileri, İK cevapları ve teknik dağılımı içeren A4 rapor; tarayıcının yazdırma penceresinden PDF olarak kaydedilebilir.
 - **Takvim:** Ana sayfada mülakat günleri noktalarla işaretli aylık takvim; güne tıklayınca o günün mülakatları saat sırasıyla listelenir. Mülakatlara isteğe bağlı saat girilebilir.
 - **Size atanan mülakatlar:** Mülakatçılar sayfasında bir mülakatçı uygulama hesabına bağlanınca, o hesap ana sayfada kendisine atanan yaklaşan mülakatları görür.
@@ -87,6 +87,7 @@ Sistemi ilk kez kullanırken şu sıra önerilir:
 | `npm run build` | Üretim derlemesi |
 | `npm run lint` | ESLint |
 | `npm test` | Vitest testleri (`tests/`) |
+| `npm run sifre-sifirla` | Bir kullanıcının şifresini bilgisayardan sıfırlar (kimse giriş yapamıyorsa) |
 | `npx prisma migrate dev` | Şema değişikliğinden sonra migration oluşturur ve uygular |
 | `npx prisma generate` | Prisma istemcisini yeniden üretir |
 
