@@ -13,7 +13,8 @@ export async function POST(request: Request) {
             );
         }
 
-        const dogrulama = kullaniciVerisiniDogrula(await request.json());
+        const body = await request.json();
+        const dogrulama = kullaniciVerisiniDogrula(body);
 
         if (dogrulama.hata !== undefined) {
             return NextResponse.json({ error: dogrulama.hata }, { status: 400 });
@@ -29,10 +30,12 @@ export async function POST(request: Request) {
             },
         });
 
-        await oturumAc(kullanici.id);
+        // Mobil uygulama çerez kullanmaz; anahtar cevapla verilir
+        const mobil = body.istemci === "mobil";
+        const anahtar = await oturumAc(kullanici.id, mobil);
 
         return NextResponse.json(
-            { kullaniciAdi: kullanici.kullaniciAdi, adSoyad: kullanici.adSoyad },
+            { kullaniciAdi: kullanici.kullaniciAdi, adSoyad: kullanici.adSoyad, ...(mobil && { anahtar }) },
             { status: 201 }
         );
     } catch (error) {

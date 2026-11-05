@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { OTURUM_CEREZI, oturumKullanicisi } from "./lib/oturum";
+import { bearerAnahtari, OTURUM_CEREZI, oturumKullanicisi } from "./lib/oturum";
 
 // Giriş yapmadan erişilebilen adresler
 const acikYollar = ["/giris", "/api/giris", "/api/kurulum"];
@@ -8,7 +8,11 @@ const acikYollar = ["/giris", "/api/giris", "/api/kurulum"];
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    const kullanici = await oturumKullanicisi(request.cookies.get(OTURUM_CEREZI)?.value);
+    // Mobil uygulama Bearer başlığı, web çerez gönderir
+    const kullanici = await oturumKullanicisi(
+        bearerAnahtari(request.headers.get("authorization")) ??
+        request.cookies.get(OTURUM_CEREZI)?.value
+    );
 
     if (kullanici) {
         // Giriş yapmış biri giriş ekranını açarsa ana sayfaya gönderilir

@@ -1,6 +1,6 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import prisma from "./prisma";
 
 export const OTURUM_CEREZI = "oturum";
@@ -36,8 +36,18 @@ export const sifreDogrula = async (sifre: string, kayitliOzet: string) => {
 // Veritabanında çerezdeki anahtarın kendisi değil, özeti tutulur
 const anahtarOzeti = (anahtar: string) => createHash("sha256").update(anahtar).digest("hex");
 
-// Yeni oturum açar ve anahtarı tarayıcıya httpOnly çerez olarak bırakır
-export const oturumAc = async (kullaniciId: number) => {
+// Mobil uygulama anahtarı çerez yerine "Authorization: Bearer <anahtar>" başlığıyla gönderir
+export const bearerAnahtari = (yetkiBasligi: string | null) =>
+    yetkiBasligi?.startsWith("Bearer ") ? yetkiBasligi.slice(7).trim() || undefined : undefined;
+
+// Route Handler'da isteğin oturum anahtarı: önce Bearer başlığı (mobil), yoksa çerez (web)
+const istekAnahtari = async () =>
+    bearerAnahtari((await headers()).get("authorization")) ??
+    (await cookies()).get(OTURUM_CEREZI)?.value;
+
+// Yeni oturum açar ve anahtarı döndürür. Web'de anahtar tarayıcıya httpOnly çerez olarak bırakılır;
+// mobilde çerez kullanılmaz, anahtar cevapla birlikte uygulamaya verilir ve orada şifreli saklanır.
+export const oturumAc = async (kullaniciId: number, mobil = false) => {
     const anahtar = randomBytes(32).toString("hex");
     const bitis = new Date(Date.now() + OTURUM_SURESI_GUN * 24 * 60 * 60 * 1000);
 
@@ -49,13 +59,17 @@ export const oturumAc = async (kullaniciId: number) => {
         },
     });
 
-    (await cookies()).set(OTURUM_CEREZI, anahtar, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        expires: bitis,
-    });
+    if (!mobil) {
+        (await cookies()).set(OTURUM_CEREZI, anahtar, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            expires: bitis,
+        });
+    }
+
+    return anahtar;
 };
 
 // Çerezdeki anahtara ait geçerli oturumun kullanıcısını döndürür, yoksa null
@@ -87,13 +101,12 @@ export const oturumKullanicisi = async (anahtar: string | undefined) => {
     return oturum.kullanici;
 };
 
-// Route Handler'larda o anki kullanıcıyı çerezden bulur
-export const mevcutKullanici = async () =>
-    oturumKullanicisi((await cookies()).get(OTURUM_CEREZI)?.value);
+// Route Handler'larda o anki kullanıcıyı Bearer başlığından ya da çerezden bulur
+export const mevcutKullanici = async () => oturumKullanicisi(await istekAnahtari());
 
-// Kullanıcının bu tarayıcıdaki oturumu dışındaki bütün oturumlarını siler (şifre değişince)
+// Kullanıcının bu cihazdaki oturumu dışındaki bütün oturumlarını siler (şifre değişince)
 export const digerOturumlariKapat = async (kullaniciId: number) => {
-    const anahtar = (await cookies()).get(OTURUM_CEREZI)?.value;
+    const anahtar = await istekAnahtari();
 
     await prisma.oturum.deleteMany({
         where: {
@@ -103,10 +116,10 @@ export const digerOturumlariKapat = async (kullaniciId: number) => {
     });
 };
 
-// Oturumu veritabanından siler ve çerezi temizler
+// Oturumu veritabanından siler ve (web'de) çerezi temizler
 export const oturumuKapat = async () => {
     const cerezler = await cookies();
-    const anahtar = cerezler.get(OTURUM_CEREZI)?.value;
+    const anahtar = await istekAnahtari();
 
     if (anahtar) {
         await prisma.oturum.deleteMany({

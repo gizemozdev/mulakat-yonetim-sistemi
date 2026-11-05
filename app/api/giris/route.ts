@@ -104,11 +104,14 @@ export async function POST(request: Request) {
             });
         }
 
-        await oturumAc(kullanici.id);
+        // Mobil uygulama çerez kullanmaz; anahtar cevapla verilir
+        const mobil = body.istemci === "mobil";
+        const anahtar = await oturumAc(kullanici.id, mobil);
 
         return NextResponse.json({
             kullaniciAdi: kullanici.kullaniciAdi,
             adSoyad: kullanici.adSoyad,
+            ...(mobil && { anahtar }),
         });
     } catch (error) {
         console.error(error);
